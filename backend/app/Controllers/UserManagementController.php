@@ -1,7 +1,7 @@
 <?php
 namespace App\Controllers;
 
-use App\Models\{User, Assignment};
+use App\Models\{User, Assignment, AuditLog};
 use App\Services\InviteMailer;
 use Core\Controller;
 
@@ -9,11 +9,13 @@ class UserManagementController extends Controller
 {
     private User $model;
     private Assignment $assignments;
+    private AuditLog $audit;
 
     public function __construct()
     {
         $this->model       = new User();
         $this->assignments = new Assignment();
+        $this->audit       = new AuditLog();
     }
 
     public function index(array $params = []): never
@@ -64,6 +66,8 @@ class UserManagementController extends Controller
             error_log('[InviteMailer] ' . $e->getMessage());
         }
 
+        $adminId = (int)$this->authUser()['id'];
+        $this->audit->log($adminId, 'create', 'user', $id, ['name' => trim($data['name']), 'email' => strtolower(trim($data['email'])), 'role' => $data['role'] ?? 'user']);
         $this->success(['id' => $id, 'invite_sent' => $mailSent], 'User created');
     }
 
@@ -113,6 +117,8 @@ class UserManagementController extends Controller
 
         if (!empty($update)) {
             $this->model->update($id, $update);
+            $adminId = (int)$this->authUser()['id'];
+            $this->audit->log($adminId, 'update', 'user', $id, array_diff_key($update, ['password' => true]));
         }
 
         $this->success(null, 'User updated');
@@ -132,6 +138,8 @@ class UserManagementController extends Controller
         }
 
         $this->model->softDelete($id);
+        $adminId = (int)$auth['id'];
+        $this->audit->log($adminId, 'delete', 'user', $id, ['name' => $this->model->findById($id)['name'] ?? '']);
         $this->success(null, 'User deleted');
     }
 
@@ -151,5 +159,33 @@ class UserManagementController extends Controller
         $data = $this->input();
         $this->assignments->syncUserProjects((int)$params['id'], $data['project_ids'] ?? []);
         $this->success(null, 'Assignments updated');
+    }
+
+    public function getEntities(array $params): never
+    {
+        $db     = \Core\DB::getInstance();
+        $userId = (int)$params['id'];
+        $rows   = $db->query(
+            'SELECT entity_id FROM user_entities WHERE user_id = ?',
+            [$userId]
+        );
+        $this->success(array_column($rows, 'entity_id'));
+    }
+
+    public function assignEntities(array $params): never
+    {
+        $db        = \Core\DB::getInstance();
+        $userId    = (int)$params['id'];
+        $data      = $this->input();
+        $entityIds = array_map('intval', $data['entity_ids'] ?? []);
+
+        $db->execute('DELETE FROM user_entities WHERE user_id = ?', [$userId]);
+        foreach ($entityIds as $eid) {
+            $db->execute(
+                'INSERT INTO user_entities (user_id, entity_id) VALUES (?, ?) ON CONFLICT DO NOTHING',
+                [$userId, $eid]
+            );
+        }
+        $this->success(null, 'Entity assignments updated');
     }
 }

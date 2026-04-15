@@ -32,7 +32,7 @@ class Project extends Model
                    COALESCE(SUM(t.hours_spent), 0)                      AS total_hours
             FROM projects p
             JOIN entities e ON e.id = p.entity_id
-            JOIN user_projects up ON up.project_id = p.id AND up.user_id = ?
+            JOIN project_members up ON up.project_id = p.id AND up.user_id = ?
             LEFT JOIN tasks t ON t.project_id = p.id AND t.is_deleted = 0
             WHERE p.is_deleted = 0
             GROUP BY p.id, e.name

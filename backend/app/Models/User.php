@@ -21,7 +21,14 @@ class User extends Model
             SELECT u.id, u.name, u.email, u.role, u.status, u.avatar, u.created_at,
                    COUNT(t.id)                       AS total_tasks,
                    COALESCE(SUM(t.hours_spent), 0)   AS total_hours,
-                   MAX(t.task_date)                  AS last_active
+                   MAX(t.task_date)                  AS last_active,
+                   COALESCE(
+                       (SELECT STRING_AGG(e.name, ', ' ORDER BY e.name)
+                        FROM user_entities ue
+                        JOIN entities e ON e.id = ue.entity_id
+                        WHERE ue.user_id = u.id AND e.is_deleted = 0),
+                       ''
+                   ) AS entity_names
             FROM users u
             LEFT JOIN tasks t ON t.user_id = u.id AND t.is_deleted = 0
             WHERE u.is_deleted = 0

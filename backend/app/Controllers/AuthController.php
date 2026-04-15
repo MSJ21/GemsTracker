@@ -2,6 +2,7 @@
 namespace App\Controllers;
 
 use App\Models\User;
+use App\Models\AuditLog;
 use Core\Controller;
 use Core\JWT;
 
@@ -29,6 +30,8 @@ class AuthController extends Controller
         if ($user['status'] !== 'active')                              $this->error('Account is inactive', 403);
 
         $payload = ['id' => $user['id'], 'name' => $user['name'], 'email' => $user['email'], 'role' => $user['role'], 'avatar' => $user['avatar']];
+
+        (new AuditLog())->log((int)$user['id'], 'login', 'user', (int)$user['id'], ['email' => $email]);
 
         $this->success([
             'token' => JWT::encode($payload),

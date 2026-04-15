@@ -12,13 +12,15 @@ class Task extends Model
         return "SELECT {$alias}.*,
                        COALESCE((SELECT COUNT(*) FROM subtasks WHERE task_id = {$alias}.id), 0) AS subtask_total,
                        COALESCE((SELECT COUNT(*) FROM subtasks WHERE task_id = {$alias}.id AND is_done = 1), 0) AS subtask_done,
-                       COALESCE((SELECT SUM(seconds) FROM time_entries WHERE task_id = {$alias}.id AND stopped_at IS NOT NULL), 0) AS tracked_seconds";
+                       COALESCE((SELECT SUM(seconds) FROM time_entries WHERE task_id = {$alias}.id AND stopped_at IS NOT NULL), 0) AS tracked_seconds,
+                       (SELECT name   FROM users WHERE id = {$alias}.assignee_id) AS assignee_name,
+                       (SELECT avatar FROM users WHERE id = {$alias}.assignee_id) AS assignee_avatar";
     }
 
     public function getByUserId(int $userId, array $filters = []): array
     {
-        $where  = 'WHERE t.user_id = ? AND t.is_deleted = 0';
-        $params = [$userId];
+        $where  = 'WHERE (t.user_id = ? OR t.assignee_id = ?) AND t.is_deleted = 0';
+        $params = [$userId, $userId];
 
         if (!empty($filters['project_id'])) { $where .= ' AND t.project_id = ?'; $params[] = $filters['project_id']; }
         if (!empty($filters['status']))     { $where .= ' AND t.status = ?';     $params[] = $filters['status']; }
@@ -29,6 +31,7 @@ class Task extends Model
         return $this->db->query("
             {$this->baseSelect()}
             , p.name AS project_name
+            , (SELECT name FROM users WHERE id = t.user_id) AS user_name
             FROM tasks t
             JOIN projects p ON p.id = t.project_id
             {$where}

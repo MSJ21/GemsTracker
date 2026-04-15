@@ -21,4 +21,4 @@ define('UPLOAD_PATH',   APP_ROOT . '/public/uploads/');
 define('UPLOAD_URL',    '/uploads/');
 define('MAX_FILE_SIZE', 2097152);
 define('ALLOWED_MIME',  ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
-define('ALLOWED_ORIGINS', array_filter(array_map('trim', explode(',', $_ENV['ALLOWED_ORIGINS'] ?? 'http://localhost:3000'))));
+define('ALLOWED_ORIGINS', array_filter(array_map('trim', explode(',', $_ENV['ALLOWED_ORIGINS'] ?? 'http://192.168.1.53:3000'))));

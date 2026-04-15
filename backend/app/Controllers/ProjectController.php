@@ -2,6 +2,7 @@
 namespace App\Controllers;
 
 use App\Models\Project;
+use App\Models\Notification;
 use Core\Controller;
 
 class ProjectController extends Controller
@@ -40,6 +41,21 @@ class ProjectController extends Controller
             'end_date'    => ($data['end_date'] ?? '') ?: null,
             'status'      => $data['status'] ?? 'active',
         ]);
+
+        // Notify all admins about the new project
+        $db     = \Core\DB::getInstance();
+        $admins = $db->query("SELECT id FROM users WHERE role = 'admin' AND is_deleted = 0");
+        $auth   = $this->authUser();
+        foreach ($admins as $a) {
+            if ((int)$a['id'] === (int)$auth['id']) { continue; }
+            Notification::push(
+                (int)$a['id'],
+                'new_project',
+                'New project created',
+                trim($data['name']),
+                '/projects'
+            );
+        }
 
         $this->success(['id' => $id], 'Project created');
     }

@@ -2,15 +2,19 @@
 namespace App\Controllers;
 
 use App\Models\Task;
+use App\Models\Notification;
+use App\Models\AuditLog;
 use Core\Controller;
 
 class TaskController extends Controller
 {
     private Task $model;
+    private AuditLog $audit;
 
     public function __construct()
     {
         $this->model = new Task();
+        $this->audit = new AuditLog();
     }
 
     public function index(array $params = []): never
@@ -48,8 +52,25 @@ class TaskController extends Controller
             'due_date'    => !empty($data['due_date']) ? $data['due_date'] : null,
             'recur_type'  => !empty($data['recur_type']) ? $data['recur_type'] : null,
             'recur_end'   => !empty($data['recur_end']) ? $data['recur_end'] : null,
+            'issue_type'  => in_array($data['issue_type'] ?? '', ['story','bug','task','epic']) ? $data['issue_type'] : 'task',
+            'sprint_id'   => !empty($data['sprint_id']) ? (int)$data['sprint_id'] : null,
+            'story_points'=> isset($data['story_points']) && $data['story_points'] !== '' ? (int)$data['story_points'] : null,
+            'assignee_id' => !empty($data['assignee_id']) ? (int)$data['assignee_id'] : null,
         ]);
 
+        // Notify assignee if different from creator
+        $assigneeId = !empty($data['assignee_id']) ? (int)$data['assignee_id'] : null;
+        if ($assigneeId && $assigneeId !== (int)$auth['id']) {
+            Notification::push(
+                $assigneeId,
+                'task_assigned',
+                'Task assigned to you',
+                trim($data['title']),
+                '/tasks'
+            );
+        }
+
+        $this->audit->log((int)$auth['id'], 'create', 'task', $id, ['title' => trim($data['title'])]);
         $this->success(['id' => $id], 'Task created');
     }
 
@@ -78,11 +99,18 @@ class TaskController extends Controller
         if (!empty($data['priority']))   $update['priority']    = $data['priority'];
         if (!empty($data['task_date']))  $update['task_date']   = $data['task_date'];
         if (!empty($data['project_id'])) $update['project_id']  = (int)$data['project_id'];
-        if (array_key_exists('due_date', $data))   $update['due_date']   = $data['due_date'] ?: null;
-        if (array_key_exists('recur_type', $data)) $update['recur_type'] = $data['recur_type'] ?: null;
-        if (array_key_exists('recur_end', $data))  $update['recur_end']  = $data['recur_end'] ?: null;
+        if (array_key_exists('due_date', $data))    { $update['due_date']    = $data['due_date'] ?: null; }
+        if (array_key_exists('recur_type', $data)) { $update['recur_type'] = $data['recur_type'] ?: null; }
+        if (array_key_exists('recur_end', $data))  { $update['recur_end']  = $data['recur_end'] ?: null; }
+        if (array_key_exists('sprint_id', $data))  { $update['sprint_id']  = $data['sprint_id'] ? (int)$data['sprint_id'] : null; }
+        if (array_key_exists('story_points', $data)) { $update['story_points'] = $data['story_points'] !== '' ? (int)$data['story_points'] : null; }
+        if (array_key_exists('assignee_id', $data))  { $update['assignee_id']  = $data['assignee_id'] ? (int)$data['assignee_id'] : null; }
+        if (!empty($data['issue_type']) && in_array($data['issue_type'], ['story','bug','task','epic'])) {
+            $update['issue_type'] = $data['issue_type'];
+        }
 
         $this->model->update($id, $update);
+        $this->audit->log((int)$auth['id'], 'update', 'task', $id, $update);
         $this->success(null, 'Task updated');
     }
 
@@ -98,6 +126,7 @@ class TaskController extends Controller
         }
 
         $this->model->softDelete($id);
+        $this->audit->log((int)$auth['id'], 'delete', 'task', $id, ['title' => $task['title']]);
         $this->success(null, 'Task deleted');
     }
 

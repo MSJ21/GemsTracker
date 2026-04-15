@@ -31,7 +31,7 @@ if (in_array($requestOrigin, ALLOWED_ORIGINS, true)) {
     header('Access-Control-Allow-Origin: ' . (ALLOWED_ORIGINS[0] ?? ''));
 }
 
-header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 header('Vary: Origin');
 
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $router = new \Core\Router();
 
-use App\Controllers\{AuthController, DashboardController, EntityController, ProjectController, UserManagementController, TaskController, ReportController, ProfileController, NotesController, SettingsController, SubtaskController, CommentController, TimeEntryController, FilterPresetController, PinnedProjectController};
+use App\Controllers\{AuthController, DashboardController, EntityController, ProjectController, UserManagementController, TaskController, ReportController, ProfileController, NotesController, SettingsController, SubtaskController, CommentController, TimeEntryController, FilterPresetController, PinnedProjectController, LabelController, MilestoneController, NotificationController, AnnouncementController, AuditLogController, GoalController, OrgController, TaskActivityController, SprintController, TaskWatcherController, TaskLinkController, ProjectMemberController};
 
 $router->add('POST', '/api/auth/login', [AuthController::class, 'login']);
 $router->add('GET',  '/api/auth/me',    [AuthController::class, 'me'], true);
@@ -67,8 +67,10 @@ $router->add('POST',   '/api/admin/users',                      [UserManagementC
 $router->add('POST',   '/api/admin/users/{id}',                 [UserManagementController::class, 'update'],         true, true);
 $router->add('DELETE', '/api/admin/users/{id}',                 [UserManagementController::class, 'destroy'],        true, true);
 $router->add('POST',   '/api/admin/users/{id}/restore',         [UserManagementController::class, 'restore'],        true, true);
-$router->add('GET',    '/api/admin/users/{id}/assignments',     [UserManagementController::class, 'getAssignments'], true, true);
-$router->add('POST',   '/api/admin/users/{id}/assignments',     [UserManagementController::class, 'assign'],         true, true);
+$router->add('GET',    '/api/admin/users/{id}/assignments',     [UserManagementController::class, 'getAssignments'],  true, true);
+$router->add('POST',   '/api/admin/users/{id}/assignments',     [UserManagementController::class, 'assign'],          true, true);
+$router->add('GET',    '/api/admin/users/{id}/entities',        [UserManagementController::class, 'getEntities'],     true, true);
+$router->add('POST',   '/api/admin/users/{id}/entities',        [UserManagementController::class, 'assignEntities'],  true, true);
 
 $router->add('GET', '/api/admin/reports',        [ReportController::class, 'admin'],       true, true);
 $router->add('GET', '/api/admin/reports/export', [ReportController::class, 'adminExport'], true, true);
@@ -123,5 +125,74 @@ $router->add('DELETE', '/api/filter-presets/{id}',            [FilterPresetContr
 $router->add('GET',    '/api/pinned-projects',                [PinnedProjectController::class, 'index'], true);
 $router->add('POST',   '/api/pinned-projects/{id}/pin',       [PinnedProjectController::class, 'pin'],   true);
 $router->add('DELETE', '/api/pinned-projects/{id}/unpin',     [PinnedProjectController::class, 'unpin'], true);
+
+// Labels
+$router->add('GET',    '/api/labels',        [LabelController::class, 'index'],   true);
+$router->add('POST',   '/api/labels',        [LabelController::class, 'store'],   true);
+$router->add('PUT',    '/api/labels/{id}',   [LabelController::class, 'update'],  true);
+$router->add('DELETE', '/api/labels/{id}',   [LabelController::class, 'destroy'], true);
+
+// Milestones
+$router->add('GET',    '/api/projects/{project_id}/milestones',     [MilestoneController::class, 'index'],   true);
+$router->add('POST',   '/api/projects/{project_id}/milestones',     [MilestoneController::class, 'store'],   true);
+$router->add('PUT',    '/api/milestones/{id}',                      [MilestoneController::class, 'update'],  true);
+$router->add('DELETE', '/api/milestones/{id}',                      [MilestoneController::class, 'destroy'], true);
+
+// Notifications
+$router->add('GET',  '/api/notifications',            [NotificationController::class, 'index'],      true);
+$router->add('POST', '/api/notifications/{id}/read',  [NotificationController::class, 'markRead'],   true);
+$router->add('POST', '/api/notifications/read-all',   [NotificationController::class, 'markAllRead'],true);
+
+// Announcements
+$router->add('GET',    '/api/announcements',              [AnnouncementController::class, 'index'],    true);
+$router->add('POST',   '/api/admin/announcements',        [AnnouncementController::class, 'store'],    true, true);
+$router->add('DELETE', '/api/admin/announcements/{id}',   [AnnouncementController::class, 'destroy'],  true, true);
+$router->add('POST',   '/api/announcements/{id}/read',    [AnnouncementController::class, 'markRead'], true);
+
+// Audit Log
+$router->add('GET', '/api/admin/audit-log', [AuditLogController::class, 'index'], true, true);
+
+// Goals / OKRs
+$router->add('GET',    '/api/goals',                         [GoalController::class, 'index'],           true);
+$router->add('POST',   '/api/goals',                         [GoalController::class, 'store'],           true);
+$router->add('PUT',    '/api/goals/{id}',                    [GoalController::class, 'update'],          true);
+$router->add('DELETE', '/api/goals/{id}',                    [GoalController::class, 'destroy'],         true);
+$router->add('PUT',    '/api/key-results/{kr_id}',           [GoalController::class, 'updateKeyResult'], true);
+
+// Org Chart
+$router->add('GET',  '/api/admin/org-chart',                    [OrgController::class, 'tree'],       true, true);
+$router->add('POST', '/api/admin/users/{user_id}/set-manager',  [OrgController::class, 'setManager'], true, true);
+
+// Task Activity
+$router->add('GET', '/api/tasks/{task_id}/activity', [TaskActivityController::class, 'index'], true);
+
+// Project Members
+$router->add('GET',    '/api/admin/projects/{project_id}/members',            [ProjectMemberController::class, 'index'],     true, true);
+$router->add('POST',   '/api/admin/projects/{project_id}/members',            [ProjectMemberController::class, 'store'],     true, true);
+$router->add('DELETE', '/api/admin/projects/{project_id}/members/{user_id}',  [ProjectMemberController::class, 'destroy'],   true, true);
+$router->add('GET',    '/api/projects/{project_id}/members',                  [ProjectMemberController::class, 'userIndex'], true);
+
+// Task Assignee
+$router->add('PATCH', '/api/tasks/{task_id}/assignee', [SprintController::class, 'assignTaskMember'], true);
+
+// Sprints
+$router->add('GET',    '/api/projects/{project_id}/sprints',          [SprintController::class, 'index'],      true);
+$router->add('POST',   '/api/projects/{project_id}/sprints',          [SprintController::class, 'store'],      true);
+$router->add('GET',    '/api/projects/{project_id}/backlog',          [SprintController::class, 'backlog'],    true);
+$router->add('GET',    '/api/sprints/{id}',                           [SprintController::class, 'show'],       true);
+$router->add('PUT',    '/api/sprints/{id}',                           [SprintController::class, 'update'],     true);
+$router->add('DELETE', '/api/sprints/{id}',                           [SprintController::class, 'destroy'],    true);
+$router->add('POST',   '/api/sprints/{id}/tasks',                     [SprintController::class, 'assignTask'], true);
+$router->add('DELETE', '/api/sprints/{sprint_id}/tasks/{task_id}',    [SprintController::class, 'removeTask'], true);
+
+// Task Watchers
+$router->add('GET',  '/api/tasks/{task_id}/watchers',  [TaskWatcherController::class, 'index'],      true);
+$router->add('POST', '/api/tasks/{task_id}/watch',     [TaskWatcherController::class, 'watch'],      true);
+$router->add('GET',  '/api/tasks/{task_id}/watching',  [TaskWatcherController::class, 'isWatching'], true);
+
+// Task Links
+$router->add('GET',    '/api/tasks/{task_id}/links', [TaskLinkController::class, 'index'],   true);
+$router->add('POST',   '/api/tasks/{task_id}/links', [TaskLinkController::class, 'store'],   true);
+$router->add('DELETE', '/api/task-links/{id}',       [TaskLinkController::class, 'destroy'], true);
 
 $router->dispatch($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);
